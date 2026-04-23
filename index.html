@@ -1,0 +1,2270 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PhishGuard v2 — Plateforme Anti-Hameçonnage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #080b12;
+  --bg2: #0d1120;
+  --bg3: #121826;
+  --surface: #161d2e;
+  --surface2: #1c2538;
+  --surface3: #222d42;
+  --border: rgba(255,255,255,0.06);
+  --border2: rgba(255,255,255,0.1);
+  --text: #e2e8f8;
+  --muted: #64748b;
+  --muted2: #94a3b8;
+
+  --cyan: #22d3ee;
+  --cyan-dim: rgba(34,211,238,0.1);
+  --cyan-glow: rgba(34,211,238,0.25);
+
+  --red: #f87171;
+  --red-dim: rgba(248,113,113,0.1);
+  --red-glow: rgba(248,113,113,0.25);
+
+  --green: #4ade80;
+  --green-dim: rgba(74,222,128,0.1);
+  --green-glow: rgba(74,222,128,0.2);
+
+  --amber: #fbbf24;
+  --amber-dim: rgba(251,191,36,0.1);
+
+  --purple: #a78bfa;
+  --purple-dim: rgba(167,139,250,0.1);
+
+  --r: 10px;
+  --r-lg: 16px;
+  --font: 'Space Grotesk', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --display: 'Syne', sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+html, body { height: 100%; scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── NOISE TEXTURE ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── HEADER ── */
+.header {
+  padding: 0 2rem;
+  height: 58px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(8,11,18,0.9);
+  backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.logo-shield {
+  width: 30px; height: 30px;
+  background: linear-gradient(135deg, var(--cyan), #0ea5e9);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 16px var(--cyan-glow);
+}
+
+.logo-shield svg { width: 16px; height: 16px; }
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.nav-tab {
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted2);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: all 0.15s;
+  font-family: var(--font);
+}
+
+.nav-tab:hover { color: var(--text); background: var(--surface); }
+.nav-tab.active { color: var(--cyan); background: var(--cyan-dim); }
+
+.live-score {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted2);
+}
+
+.live-score .val { color: var(--cyan); font-weight: 600; }
+
+/* ── MAIN ── */
+.main {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2.5rem 1rem;
+  position: relative;
+  z-index: 1;
+}
+
+.screen {
+  width: 100%;
+  max-width: 820px;
+  animation: fadeUp 0.3s ease;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.d-none { display: none !important; }
+
+/* ══════════════════════════════════
+   DASHBOARD SCREEN
+══════════════════════════════════ */
+.dash-hero {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2rem;
+  align-items: start;
+  margin-bottom: 2rem;
+}
+
+.dash-title {
+  font-family: var(--display);
+  font-size: clamp(2rem,4vw,3rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--text);
+  margin-bottom: 0.75rem;
+}
+
+.dash-title span { color: var(--cyan); }
+
+.dash-sub {
+  font-size: 15px;
+  color: var(--muted2);
+  line-height: 1.7;
+  max-width: 440px;
+}
+
+.level-orb {
+  width: 100px; height: 100px;
+  border-radius: 50%;
+  background: conic-gradient(var(--cyan) 0%, var(--cyan) calc(var(--pct, 0) * 1%), var(--surface3) calc(var(--pct, 0) * 1%));
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+  box-shadow: 0 0 40px var(--cyan-glow);
+}
+
+.level-orb::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: var(--bg2);
+}
+
+.level-orb-inner {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+.level-num {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--cyan);
+  display: block;
+  line-height: 1;
+}
+
+.level-label {
+  font-size: 9px;
+  color: var(--muted2);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* KPI Cards */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 1.5rem;
+}
+
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.kpi:hover { border-color: var(--border2); }
+
+.kpi::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--kpi-color, var(--cyan));
+  opacity: 0.7;
+}
+
+.kpi-val {
+  font-family: var(--display);
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--kpi-color, var(--cyan));
+  display: block;
+  letter-spacing: -0.03em;
+  margin-bottom: 2px;
+}
+
+.kpi-name {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.kpi-delta {
+  position: absolute;
+  top: 14px; right: 14px;
+  font-size: 10px;
+  font-family: var(--mono);
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.kpi-delta.up { background: var(--green-dim); color: var(--green); }
+.kpi-delta.down { background: var(--red-dim); color: var(--red); }
+
+/* Weakness radar section */
+.dash-bottom {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 2rem;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 20px;
+}
+
+.panel-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted2);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-title svg { width: 13px; height: 13px; opacity: 0.7; }
+
+/* Category bars */
+.cat-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.cat-bar-label {
+  font-size: 12px;
+  color: var(--muted2);
+  width: 50px;
+  flex-shrink: 0;
+}
+
+.cat-bar-outer {
+  flex: 1;
+  height: 6px;
+  background: var(--surface3);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.cat-bar-inner {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 1s ease;
+}
+
+.cat-bar-pct {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted2);
+  width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Error type list */
+.error-list { display: flex; flex-direction: column; gap: 8px; }
+
+.error-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.error-badge {
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+  font-family: var(--mono);
+}
+
+.error-badge.url { background: var(--cyan-dim); color: var(--cyan); }
+.error-badge.email { background: var(--amber-dim); color: var(--amber); }
+.error-badge.sms { background: var(--green-dim); color: var(--green); }
+
+.error-text { flex: 1; color: var(--muted2); }
+.error-count { font-family: var(--mono); font-size: 12px; color: var(--red); font-weight: 600; }
+
+/* CTA area */
+.dash-cta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* ══════════════════════════════════
+   BUTTONS
+══════════════════════════════════ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 24px;
+  border-radius: var(--r);
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.18s ease;
+  letter-spacing: -0.01em;
+}
+
+.btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+.btn-primary {
+  background: var(--cyan);
+  color: #000;
+  box-shadow: 0 0 20px var(--cyan-glow);
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 0 28px var(--cyan-glow);
+}
+
+.btn-ghost {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  color: var(--text);
+}
+
+.btn-ghost:hover { background: var(--surface2); border-color: var(--cyan); color: var(--cyan); }
+
+.btn-sm { padding: 8px 16px; font-size: 13px; }
+
+/* ══════════════════════════════════
+   QUIZ SCREEN
+══════════════════════════════════ */
+.quiz-layout {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 20px;
+  align-items: start;
+}
+
+.quiz-main { display: flex; flex-direction: column; gap: 16px; }
+
+/* Progress */
+.q-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.q-steps {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.q-step {
+  flex: 1;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--surface3);
+  transition: background 0.4s ease;
+}
+
+.q-step.done { background: var(--cyan); }
+.q-step.correct-done { background: var(--green); }
+.q-step.wrong-done { background: var(--red); }
+.q-step.current { background: var(--cyan); opacity: 0.5; }
+
+.q-counter {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Question header */
+.q-header {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 16px 20px;
+}
+
+.q-type-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.q-type-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 3px 10px;
+  border-radius: 5px;
+}
+
+.q-type-badge.email { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(251,191,36,0.2); }
+.q-type-badge.url { background: var(--cyan-dim); color: var(--cyan); border: 1px solid var(--cyan-glow); }
+.q-type-badge.sms { background: var(--green-dim); color: var(--green); border: 1px solid rgba(74,222,128,0.2); }
+
+.q-diff {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.diff-easy { background: var(--green-dim); color: var(--green); }
+.diff-medium { background: var(--amber-dim); color: var(--amber); }
+.diff-hard { background: var(--red-dim); color: var(--red); }
+
+.q-title {
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+/* Scenario content */
+/* Email */
+.email-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.email-chrome {
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  padding: 9px 14px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.dot { width: 10px; height: 10px; border-radius: 50%; }
+.dot.r { background: #ff5f57; }
+.dot.y { background: #febc2e; }
+.dot.g { background: #28c840; }
+
+.email-chrome-label {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+
+.email-meta {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.avatar {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--surface3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  color: var(--cyan);
+  border: 1px solid var(--border);
+}
+
+.email-from-name { font-size: 13px; font-weight: 600; }
+.email-from-addr { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+.email-subject {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.email-body {
+  padding: 14px 18px;
+  font-size: 13px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  color: var(--text);
+}
+
+.email-link {
+  display: block;
+  padding: 0 18px 14px;
+  color: var(--cyan);
+  font-family: var(--mono);
+  font-size: 12px;
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+/* Browser / URL */
+.url-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.browser-chrome {
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  padding: 9px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.browser-dots { display: flex; gap: 5px; }
+
+.browser-addr {
+  flex: 1;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.padlock.ok { color: var(--green); }
+.padlock.bad { color: var(--red); }
+.padlock svg { width: 10px; height: 10px; }
+
+.url-detail {
+  padding: 20px 18px;
+  min-height: 100px;
+}
+
+.url-display {
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+
+.url-full-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+
+.url-full-val {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted2);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  word-break: break-all;
+  line-height: 1.6;
+}
+
+/* SMS */
+.sms-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+.sms-header {
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sms-avatar {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--surface3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+  color: var(--muted2);
+}
+
+.sms-name { font-size: 13px; font-weight: 600; }
+.sms-num { font-size: 10px; color: var(--muted); font-family: var(--mono); }
+
+.sms-body { padding: 14px; }
+
+.sms-bubble {
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  border-radius: 16px 16px 4px 16px;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.65;
+  max-width: 88%;
+  word-break: break-word;
+}
+
+/* Choices */
+.answer-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.answer-label {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.choice-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--r);
+  border: 1.5px solid var(--border2);
+  background: var(--surface);
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.choice-btn:hover:not(:disabled) { border-color: var(--cyan); background: var(--cyan-dim); }
+.choice-btn:disabled { cursor: not-allowed; opacity: 0.6; }
+
+.choice-btn.correct { border-color: var(--green); background: var(--green-dim); color: var(--green); }
+.choice-btn.wrong { border-color: var(--red); background: var(--red-dim); color: var(--red); }
+.choice-btn.reveal { border-color: var(--green); background: rgba(74,222,128,0.05); }
+
+.choice-icon {
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  border: 1.5px solid var(--border2);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+/* Sidebar */
+.quiz-sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+.sidebar-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 16px;
+}
+
+.sidebar-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+/* Session micro stats */
+.session-stats { display: flex; flex-direction: column; gap: 8px; }
+
+.session-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.session-row-label { color: var(--muted2); }
+.session-row-val { font-family: var(--mono); font-weight: 600; color: var(--text); }
+
+/* OWASP tags */
+.owasp-list { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.owasp-tag {
+  padding: 3px 9px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--mono);
+  background: var(--purple-dim);
+  color: var(--purple);
+  border: 1px solid rgba(167,139,250,0.2);
+  cursor: help;
+  position: relative;
+}
+
+.owasp-tag:hover .owasp-tip {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.owasp-tip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-family: var(--font);
+  font-weight: 400;
+  color: var(--muted2);
+  width: 200px;
+  line-height: 1.5;
+  z-index: 50;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.15s ease;
+  white-space: normal;
+  text-align: left;
+}
+
+/* Feedback */
+.feedback-panel {
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  animation: feedIn 0.3s ease;
+}
+
+@keyframes feedIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.feedback-panel.correct { border-color: var(--green); }
+.feedback-panel.wrong { border-color: var(--red); }
+
+.feedback-top {
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.feedback-top.correct { background: var(--green-dim); color: var(--green); }
+.feedback-top.wrong { background: var(--red-dim); color: var(--red); }
+.feedback-top svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+.feedback-body-text {
+  padding: 14px 18px;
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--muted2);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.clues-list {
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.clue-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.clue-item:last-child { border-bottom: none; }
+
+.clue-icon { color: var(--amber); flex-shrink: 0; margin-top: 1px; }
+.clue-icon svg { width: 13px; height: 13px; }
+
+.clue-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--amber);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.hl-bad {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--red);
+  background: var(--red-dim);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.hl-good {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--green);
+  background: var(--green-dim);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* Attack tag on feedback */
+.attack-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--red-dim);
+  color: var(--red);
+  border: 1px solid rgba(248,113,113,0.2);
+  margin-left: 8px;
+}
+
+/* Quiz nav */
+.quiz-nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* ══════════════════════════════════
+   RESULTS SCREEN
+══════════════════════════════════ */
+.results-screen {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2.5rem;
+  align-items: start;
+}
+
+.result-ring-wrap { flex-shrink: 0; }
+
+.ring-container {
+  position: relative;
+  width: 140px; height: 140px;
+}
+
+.ring-container svg {
+  position: absolute;
+  top: 0; left: 0;
+}
+
+.ring-inner {
+  position: absolute;
+  inset: 12px;
+  border-radius: 50%;
+  background: var(--bg2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.ring-pct {
+  font-family: var(--display);
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--cyan);
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.ring-sub {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.result-right {}
+
+.result-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--cyan);
+  margin-bottom: 6px;
+}
+
+.result-title {
+  font-family: var(--display);
+  font-size: clamp(1.5rem,3vw,2.2rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin-bottom: 8px;
+}
+
+.result-desc {
+  font-size: 13px;
+  color: var(--muted2);
+  line-height: 1.7;
+  margin-bottom: 1.5rem;
+  max-width: 480px;
+}
+
+.result-breakdown {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 1.5rem;
+}
+
+.bd-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 14px;
+  text-align: center;
+}
+
+.bd-val {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 800;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.bd-card.ok .bd-val { color: var(--green); }
+.bd-card.bad .bd-val { color: var(--red); }
+.bd-card.info .bd-val { color: var(--cyan); }
+
+.bd-label {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+/* Per-attack breakdown in results */
+.attack-breakdown {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+
+.atk-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.atk-row:last-child { border-bottom: none; }
+
+.atk-name { flex: 1; color: var(--muted2); }
+.atk-bar-wrap { width: 80px; }
+.atk-bar-bg { height: 4px; background: var(--surface3); border-radius: 99px; }
+.atk-bar-fg { height: 100%; border-radius: 99px; background: var(--cyan); transition: width 1s ease; }
+
+.atk-pct { font-family: var(--mono); font-size: 11px; color: var(--muted2); width: 30px; text-align: right; }
+
+/* ══════════════════════════════════
+   TICKER
+══════════════════════════════════ */
+.ticker-strip {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 8px 2rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.ticker-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--cyan);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.ticker-label svg { width: 11px; height: 11px; }
+
+.ticker-track {
+  flex: 1;
+  overflow: hidden;
+}
+
+.ticker-inner {
+  display: flex;
+  gap: 2rem;
+  white-space: nowrap;
+  animation: tickScroll 32s linear infinite;
+  color: var(--muted);
+}
+
+@keyframes tickScroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.ticker-sep { color: var(--surface3); margin: 0 0.5rem; }
+
+/* ══════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════ */
+@media (max-width: 680px) {
+  .header { padding: 0 1rem; }
+  .main { padding: 1.25rem 0.75rem; }
+  .quiz-layout { grid-template-columns: 1fr; }
+  .quiz-sidebar { display: none; }
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .dash-bottom { grid-template-columns: 1fr; }
+  .dash-hero { grid-template-columns: 1fr; }
+  .level-orb { display: none; }
+  .results-screen { grid-template-columns: 1fr; }
+  .result-ring-wrap { display: flex; justify-content: center; }
+  .choices { grid-template-columns: 1fr; }
+  .result-breakdown { grid-template-columns: repeat(3,1fr); }
+}
+
+@media (max-width: 400px) {
+  .result-breakdown { grid-template-columns: 1fr 1fr; }
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+
+/* ── Glow pulse on primary CTA ── */
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 18px var(--cyan-glow); }
+  50% { box-shadow: 0 0 36px var(--cyan-glow), 0 0 60px rgba(34,211,238,0.15); }
+}
+
+.btn-primary { animation: glowPulse 3s ease infinite; }
+.btn-primary:hover { animation: none; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- HEADER -->
+  <header class="header">
+    <div class="logo">
+      <div class="logo-shield">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+      </div>
+      PhishGuard
+    </div>
+    <div class="header-right">
+      <button class="nav-tab active" id="tab-home" onclick="showDashboard()">Tableau de bord</button>
+      <button class="nav-tab" id="tab-quiz" onclick="startQuiz()">S'entraîner</button>
+      <div class="live-score" id="live-score" style="display:none;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <span id="score-display" class="val">0</span> pts
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main class="main" role="main">
+
+    <!-- ══ DASHBOARD ══ -->
+    <section class="screen" id="screen-dashboard">
+      <div class="dash-hero">
+        <div>
+          <div class="dash-title">Entraînez-vous à détecter<br><span>les attaques réelles.</span></div>
+          <p class="dash-sub">Emails, URLs et SMS frauduleux — 12 scénarios avancés incluant typosquatting, fatigue MFA et deepfake SMS. Chaque erreur est analysée et tracée.</p>
+        </div>
+        <div class="level-orb" id="level-orb">
+          <div class="level-orb-inner">
+            <span class="level-num" id="orb-level">1</span>
+            <span class="level-label">niveau</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi" style="--kpi-color: var(--cyan);">
+          <span class="kpi-val" id="kpi-total">0</span>
+          <span class="kpi-name">Parties jouées</span>
+        </div>
+        <div class="kpi" style="--kpi-color: var(--green);">
+          <span class="kpi-val" id="kpi-accuracy">—</span>
+          <span class="kpi-name">Précision globale</span>
+        </div>
+        <div class="kpi" style="--kpi-color: var(--amber);">
+          <span class="kpi-val" id="kpi-streak">0</span>
+          <span class="kpi-name">Meilleure série</span>
+        </div>
+        <div class="kpi" style="--kpi-color: var(--purple);">
+          <span class="kpi-val" id="kpi-points">0</span>
+          <span class="kpi-name">Points totaux</span>
+        </div>
+      </div>
+
+      <div class="dash-bottom">
+        <div class="panel">
+          <div class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Précision par catégorie
+          </div>
+          <div id="cat-bars">
+            <div class="cat-bar-row">
+              <span class="cat-bar-label" style="color:var(--amber);">Email</span>
+              <div class="cat-bar-outer"><div class="cat-bar-inner" id="bar-email" style="width:0%; background:var(--amber);"></div></div>
+              <span class="cat-bar-pct" id="pct-email">—</span>
+            </div>
+            <div class="cat-bar-row">
+              <span class="cat-bar-label" style="color:var(--cyan);">URL</span>
+              <div class="cat-bar-outer"><div class="cat-bar-inner" id="bar-url" style="width:0%; background:var(--cyan);"></div></div>
+              <span class="cat-bar-pct" id="pct-url">—</span>
+            </div>
+            <div class="cat-bar-row">
+              <span class="cat-bar-label" style="color:var(--green);">SMS</span>
+              <div class="cat-bar-outer"><div class="cat-bar-inner" id="bar-sms" style="width:0%; background:var(--green);"></div></div>
+              <span class="cat-bar-pct" id="pct-sms">—</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Erreurs récurrentes
+          </div>
+          <div class="error-list" id="error-list">
+            <div style="font-size:12px; color:var(--muted); text-align:center; padding:12px 0;">
+              Jouez une partie pour voir vos points faibles.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dash-cta">
+        <button class="btn btn-primary" onclick="startQuiz()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Commencer l'entraînement
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick="resetStats()" style="font-size:12px; color:var(--muted);">
+          Réinitialiser les stats
+        </button>
+      </div>
+    </section>
+
+    <!-- ══ QUIZ ══ -->
+    <section class="screen d-none" id="screen-quiz" aria-live="polite">
+      <div class="quiz-layout">
+
+        <!-- Main column -->
+        <div class="quiz-main">
+          <!-- Steps -->
+          <div class="q-progress">
+            <div class="q-steps" id="q-steps"></div>
+            <span class="q-counter" id="q-counter">1 / 12</span>
+          </div>
+
+          <!-- Question header -->
+          <div class="q-header">
+            <div class="q-type-row">
+              <div class="q-type-badge" id="q-type-badge">Email</div>
+              <div class="q-diff" id="q-diff">Facile</div>
+            </div>
+            <div class="q-title" id="q-title">Titre du scénario</div>
+          </div>
+
+          <!-- Scenario -->
+          <div id="scenario-content"></div>
+
+          <!-- Choices -->
+          <div class="answer-wrap">
+            <span class="answer-label">Verdict ?</span>
+            <div class="choices" role="group">
+              <button class="choice-btn" id="btn-legit" onclick="answer(true)">
+                <div class="choice-icon">✓</div>
+                <span>Légitime</span>
+              </button>
+              <button class="choice-btn" id="btn-phish" onclick="answer(false)">
+                <div class="choice-icon">⚠</div>
+                <span>Hameçonnage</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Feedback -->
+          <div id="feedback-area"></div>
+
+          <!-- Nav -->
+          <div class="quiz-nav-bar">
+            <button class="btn btn-ghost btn-sm" onclick="showDashboard()" style="font-size:12px;">← Quitter</button>
+            <button class="btn btn-primary btn-sm d-none" id="btn-next" onclick="nextQ()">Suivant →</button>
+          </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="quiz-sidebar">
+          <div class="sidebar-panel">
+            <div class="sidebar-title">Session en cours</div>
+            <div class="session-stats">
+              <div class="session-row"><span class="session-row-label">Score</span><span class="session-row-val" id="sb-score">0 pts</span></div>
+              <div class="session-row"><span class="session-row-label">Correctes</span><span class="session-row-val" style="color:var(--green);" id="sb-correct">0</span></div>
+              <div class="session-row"><span class="session-row-label">Incorrectes</span><span class="session-row-val" style="color:var(--red);" id="sb-wrong">0</span></div>
+              <div class="session-row"><span class="session-row-label">Précision</span><span class="session-row-val" id="sb-acc">—</span></div>
+            </div>
+          </div>
+          <div class="sidebar-panel" id="owasp-panel" style="display:none;">
+            <div class="sidebar-title">Références OWASP</div>
+            <div class="owasp-list" id="owasp-list"></div>
+          </div>
+          <div class="sidebar-panel">
+            <div class="sidebar-title">Raccourcis clavier</div>
+            <div style="font-size:11px; color:var(--muted); line-height:1.8;">
+              <kbd style="background:var(--surface3); padding:1px 6px; border-radius:4px; font-family:var(--mono);">L</kbd> Légitime &nbsp;
+              <kbd style="background:var(--surface3); padding:1px 6px; border-radius:4px; font-family:var(--mono);">H</kbd> Hameçonnage<br>
+              <kbd style="background:var(--surface3); padding:1px 6px; border-radius:4px; font-family:var(--mono);">Entrée</kbd> Suivant
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ══ RESULTS ══ -->
+    <section class="screen d-none" id="screen-results">
+      <div class="results-screen">
+
+        <div class="result-ring-wrap">
+          <div class="ring-container">
+            <svg width="140" height="140" viewBox="0 0 140 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="70" cy="70" r="60" stroke="var(--surface3)" stroke-width="8"/>
+              <circle id="ring-arc" cx="70" cy="70" r="60" stroke="var(--cyan)" stroke-width="8"
+                stroke-linecap="round"
+                stroke-dasharray="377"
+                stroke-dashoffset="377"
+                transform="rotate(-90 70 70)"
+                style="transition: stroke-dashoffset 1.2s ease;"/>
+            </svg>
+            <div class="ring-inner">
+              <span class="ring-pct" id="ring-pct">0%</span>
+              <span class="ring-sub">Précision</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="result-right">
+          <div class="result-label">Résultats de la session</div>
+          <h2 class="result-title" id="result-title">Résultat</h2>
+          <p class="result-desc" id="result-desc"></p>
+
+          <div class="result-breakdown">
+            <div class="bd-card ok"><span class="bd-val" id="bd-correct">0</span><span class="bd-label">Correctes</span></div>
+            <div class="bd-card bad"><span class="bd-val" id="bd-wrong">0</span><span class="bd-label">Incorrectes</span></div>
+            <div class="bd-card info"><span class="bd-val" id="bd-score">0</span><span class="bd-label">Points</span></div>
+          </div>
+
+          <div class="attack-breakdown" id="attack-breakdown"></div>
+
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" onclick="startQuiz()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              Rejouer
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="showDashboard()">Tableau de bord</button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- TICKER -->
+  <footer class="ticker-strip" role="contentinfo">
+    <div class="ticker-label">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Conseils
+    </div>
+    <div class="ticker-track">
+      <div class="ticker-inner" id="ticker"></div>
+    </div>
+  </footer>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   OWASP Reference
+═══════════════════════════════════════════════ */
+const OWASP = {
+  'A07': { code: 'OWASP A07', name: 'Identification Failures', desc: 'Authentification défaillante permettant aux attaquants d\'usurper des identités.' },
+  'A03': { code: 'OWASP A03', name: 'Injection', desc: 'Données malveillantes envoyées à un interpréteur pour exécuter des commandes non prévues.' },
+  'A05': { code: 'OWASP A05', name: 'Security Misconfiguration', desc: 'Configurations incomplètes ou par défaut exposant des fonctionnalités sensibles.' },
+  'A08': { code: 'OWASP A08', name: 'Software & Data Integrity', desc: 'Confiance aveugle accordée à des mises à jour ou données sans vérification d\'intégrité.' },
+  'SEC-PHISH': { code: 'Social Engineering', name: 'Phishing / Pretexting', desc: 'Manipulation psychologique visant à obtenir des informations confidentielles.' },
+  'TYPOSQUAT': { code: 'Typosquatting', name: 'Domain Impersonation', desc: 'Enregistrement de domaines similaires à des marques légitimes pour tromper les victimes.' },
+  'MFA-FATIGUE': { code: 'MFA Fatigue', name: 'Push Bombing', desc: 'Envoi massif de notifications MFA pour pousser la victime à accepter par erreur.' },
+  'DEEPFAKE': { code: 'Deepfake/AI', name: 'AI-Generated Fraud', desc: 'Contenu synthétique généré par IA pour usurper l\'identité d\'une personne réelle.' },
+  'HOMOGLYPH': { code: 'Homoglyph', name: 'Visual Deception', desc: 'Utilisation de caractères visuellement similaires pour tromper l\'œil humain.' },
+  'REDIRECT': { code: 'URL Redirect', name: 'Open Redirect (CWE-601)', desc: 'Paramètre de redirection mal contrôlé permettant d\'envoyer vers un site malveillant.' },
+};
+
+/* ═══════════════════════════════════════════════
+   SCENARIOS — 12 scénarios
+═══════════════════════════════════════════════ */
+const SCENARIOS = [
+  {
+    id: 1,
+    type: 'email',
+    difficulty: 'easy',
+    title: 'Alerte compte bancaire',
+    isPhishing: true,
+    attackType: 'Urgence artificielle',
+    owasp: ['SEC-PHISH', 'A07'],
+    content: {
+      from: 'Sécurité BanqueNationale',
+      addr: 'securite@banque-nationale-fr.com',
+      initials: 'SB',
+      subject: '⚠️ URGENT — Votre compte a été suspendu',
+      body: `Cher(e) client(e),\n\nNous avons détecté une activité suspecte sur votre compte. Votre accès a été temporairement bloqué pour votre sécurité.\n\nPour réactiver votre compte immédiatement, cliquez sur le lien ci-dessous et confirmez vos informations :`,
+      link: 'http://banque-nationale-fr.verifyaccount.xyz/login?token=8a3k9f'
+    },
+    explanation: 'Email d\'hameçonnage classique exploitant l\'urgence artificielle (OWASP A07). Le domaine expéditeur et le lien de redirection ne correspondent pas à une banque légitime.',
+    clues: [
+      { label: 'Domaine suspect', text: 'Le domaine expéditeur est', bad: 'banque-nationale-fr.com', note: ' — sans rapport avec une vraie banque.' },
+      { label: 'Lien vers domaine étranger', text: 'Le lien pointe vers', bad: 'verifyaccount.xyz', note: ' — aucun lien avec la banque.' },
+      { label: 'Urgence artificielle', text: 'Le mot URGENT en majuscules déclenche la peur — technique de manipulation émotionnelle.' },
+      { label: 'Salutation générique', text: 'Votre banque s\'adresserait à vous par votre nom, jamais par "Cher(e) client(e)".' }
+    ]
+  },
+  {
+    id: 2,
+    type: 'url',
+    difficulty: 'hard',
+    title: 'URL de connexion PayPal',
+    isPhishing: true,
+    attackType: 'Homoglyphe',
+    owasp: ['HOMOGLYPH', 'REDIRECT', 'A07'],
+    content: {
+      secure: false,
+      display: 'paypa1.com/signin/secure',
+      full: 'http://paypa1.com/signin/secure/?redirect=https://paypal.com&session=aGVsbG8='
+    },
+    explanation: 'URL frauduleuse exploitant un homoglyphe (chiffre "1" au lieu de "l") et un paramètre de redirection pour rassurer la victime avant de capturer ses identifiants.',
+    clues: [
+      { label: 'Homoglyphe', text: 'Le domaine est', bad: 'paypa1.com', note: ' avec le chiffre "1" à la place de "l". Quasi-identique visuellement.' },
+      { label: 'HTTP sans HTTPS', text: 'PayPal force HTTPS partout. Une URL HTTP signifie que vos données circulent en clair.' },
+      { label: 'Paramètre redirect', text: 'Le paramètre', bad: 'redirect=https://paypal.com', note: ' vous renvoie vers le vrai site après capture de vos identifiants.' },
+      { label: 'Token Base64', text: 'Le paramètre session contient une valeur Base64 pour masquer la charge utile malveillante.' }
+    ]
+  },
+  {
+    id: 3,
+    type: 'email',
+    difficulty: 'medium',
+    title: 'Réinitialisation mot de passe GitHub',
+    isPhishing: false,
+    attackType: null,
+    owasp: [],
+    content: {
+      from: 'GitHub',
+      addr: 'noreply@github.com',
+      initials: 'GH',
+      subject: '[GitHub] Réinitialisation de votre mot de passe',
+      body: `Bonjour,\n\nNous avons reçu une demande de réinitialisation du mot de passe associé à ce compte GitHub.\n\nSi vous êtes à l'origine de cette demande, cliquez sur le lien ci-dessous (valable 1 heure) :`,
+      link: 'https://github.com/password_reset?token=a8f3c2d9e1b4...'
+    },
+    explanation: 'Email légitime provenant du domaine officiel de GitHub. Ton professionnel, lien vers github.com, aucune urgence excessive ni demande d\'informations sensibles.',
+    clues: [
+      { label: 'Domaine officiel', text: 'L\'expéditeur est', good: 'noreply@github.com', note: ' — domaine officiel GitHub sans variation.' },
+      { label: 'HTTPS officiel', text: 'Le lien pointe vers', good: 'https://github.com', note: ' — domaine officiel, connexion chiffrée.' },
+      { label: 'Ton professionnel', text: 'Pas d\'urgence excessive. Le mail précise la durée de validité du token : comportement normal.' },
+      { label: 'Aucune demande sensible', text: 'GitHub ne demande jamais votre mot de passe actuel par email.' }
+    ]
+  },
+  {
+    id: 4,
+    type: 'sms',
+    difficulty: 'medium',
+    title: 'SMS Chronopost — Frais de douane',
+    isPhishing: true,
+    attackType: 'Smishing colis',
+    owasp: ['SEC-PHISH', 'A07'],
+    content: {
+      contact: 'Chronopost',
+      number: '+33 6 12 34 56 78',
+      initials: 'CH',
+      message: 'Votre colis CHRON-7829341 est en attente. Des frais de douane de 2,50€ sont dus. Payez avant 24h pour éviter le retour :\n\nhttp://chronopost-livraison.fr-tracking.net/colis'
+    },
+    explanation: 'Smishing classique imitant Chronopost. Le domaine frauduleux, le numéro mobile et l\'urgence temporelle sont des signaux d\'alerte caractéristiques.',
+    clues: [
+      { label: 'Faux domaine', text: 'Le domaine', bad: 'fr-tracking.net', note: ' n\'a aucun lien avec Chronopost. Le vrai domaine est chronopost.fr.' },
+      { label: 'Frais inattendus', text: 'Les opérateurs postaux ne demandent jamais de paiement par SMS avec un lien.' },
+      { label: 'Pression 24h', text: 'La limite de 24h vise à court-circuiter votre réflexion — technique de manipulation.' },
+      { label: 'Numéro mobile', text: 'Chronopost utilise des numéros courts officiels (ex: 38040), pas de numéros +33 6.' }
+    ]
+  },
+  {
+    id: 5,
+    type: 'url',
+    difficulty: 'hard',
+    title: 'Connexion Microsoft 365',
+    isPhishing: true,
+    attackType: 'Sous-domaine piège',
+    owasp: ['SEC-PHISH', 'A07', 'A05'],
+    content: {
+      secure: true,
+      display: 'login.microsoftonline.com.accounts.logins.cloud/auth',
+      full: 'https://login.microsoftonline.com.accounts.logins.cloud/auth/oauth2/v2.0/authorize?client_id=aabbcc'
+    },
+    explanation: 'URL sophistiquée avec HTTPS valide. La confusion tient au fait que le vrai domaine est "logins.cloud" — tout ce qui précède n\'est qu\'un sous-domaine trompeur.',
+    clues: [
+      { label: 'Domaine réel à droite', text: 'Le vrai domaine est', bad: 'logins.cloud', note: ' — pas microsoft.com. Tout ce qui précède est sous-domaine de logins.cloud.' },
+      { label: 'HTTPS ne garantit rien', text: 'Le cadenas HTTPS certifie uniquement le chiffrement, pas l\'identité du propriétaire.' },
+      { label: 'Chemin trompeur', text: 'Le chemin commence par', bad: 'login.microsoftonline.com.accounts', note: ' pour imiter un sous-domaine Microsoft légitime.' },
+      { label: 'Client ID suspect', text: 'Un paramètre OAuth réel de Microsoft n\'utilise pas un ID aussi simple. Signe d\'attaque.' }
+    ]
+  },
+  {
+    id: 6,
+    type: 'email',
+    difficulty: 'easy',
+    title: 'Facture Adobe Creative Cloud',
+    isPhishing: false,
+    attackType: null,
+    owasp: [],
+    content: {
+      from: 'Adobe',
+      addr: 'billing@adobe.com',
+      initials: 'AD',
+      subject: 'Votre facture Adobe — Abonnement Creative Cloud',
+      body: `Bonjour,\n\nVotre paiement mensuel de 59,99 € pour Adobe Creative Cloud a bien été traité le 22 avril 2026.\n\nNuméro de facture : ADO-2026-04-882341\nMéthode : Visa se terminant par 4827\n\nTéléchargez votre facture dans votre espace client :`,
+      link: 'https://account.adobe.com/fr/orders'
+    },
+    explanation: 'Email légitime d\'Adobe. Le domaine officiel, les détails spécifiques de facturation et l\'absence de manipulation émotionnelle confirment son authenticité.',
+    clues: [
+      { label: 'Domaine officiel', text: 'L\'expéditeur est', good: 'billing@adobe.com', note: ' — domaine officiel Adobe.' },
+      { label: 'Lien account.adobe.com', text: 'Le lien pointe vers', good: 'account.adobe.com/fr/orders', note: ' — plateforme officielle Adobe.' },
+      { label: 'Détails spécifiques', text: 'Montant exact, numéro de facture, 4 derniers chiffres de carte. Signe d\'authenticité.' },
+      { label: 'Aucune urgence', text: 'L\'email informe d\'un paiement passé — aucune manipulation, aucune menace.' }
+    ]
+  },
+  {
+    id: 7,
+    type: 'sms',
+    difficulty: 'easy',
+    title: 'SMS Impôts — Remboursement',
+    isPhishing: true,
+    attackType: 'Usurpation DGFiP',
+    owasp: ['SEC-PHISH', 'A07'],
+    content: {
+      contact: 'DGFiP',
+      number: '+33 7 65 43 21 09',
+      initials: 'DF',
+      message: 'IMPOTS.GOUV.FR: Un remboursement de 189€ vous a ete attribue. Cliquez ici pour recevoir votre virement:\nhttp://dgfip-remboursement.com/obtenir?id=FR78291'
+    },
+    explanation: 'Arnaque imitant la DGFiP. L\'administration fiscale ne contacte jamais par SMS pour des remboursements avec un lien et n\'utilise que des domaines en .gouv.fr.',
+    clues: [
+      { label: 'Faux domaine gov', text: 'Le domaine', bad: 'dgfip-remboursement.com', note: ' n\'est pas en .gouv.fr. L\'État utilise exclusivement .gouv.fr.' },
+      { label: 'Processus officiel', text: 'La DGFiP notifie les remboursements par courrier ou via impots.gouv.fr — jamais par SMS.' },
+      { label: 'Numéro mobile', text: 'Les administrations françaises n\'utilisent pas de numéros mobiles pour des communications officielles.' },
+      { label: 'Domaine officiel', text: 'Tout SMS se réclamant des impôts avec un autre domaine que', good: 'impots.gouv.fr', note: ' est frauduleux.' }
+    ]
+  },
+  {
+    id: 8,
+    type: 'url',
+    difficulty: 'medium',
+    title: 'URL de connexion Netflix',
+    isPhishing: false,
+    attackType: null,
+    owasp: [],
+    content: {
+      secure: true,
+      display: 'netflix.com/login',
+      full: 'https://www.netflix.com/login?locale=fr-FR&nextPage=%2Fbrowse'
+    },
+    explanation: 'URL légitime appartenant au domaine officiel de Netflix. Le HTTPS, le domaine non-modifié et les paramètres standards confirment l\'authenticité.',
+    clues: [
+      { label: 'Domaine officiel', text: 'Le domaine est', good: 'netflix.com', note: ' — sans variation ni extension suspecte.' },
+      { label: 'HTTPS + certificat', text: 'Connexion HTTPS valide. Le certificat est émis pour Netflix, Inc. par DigiCert.' },
+      { label: 'Paramètre nextPage', text: 'Le paramètre', good: 'nextPage=%2Fbrowse', note: ' redirige vers /browse après connexion — comportement standard.' },
+      { label: 'locale=fr-FR', text: 'Localisation de la page en français : comportement attendu d\'un service international.' }
+    ]
+  },
+  {
+    id: 9,
+    type: 'url',
+    difficulty: 'hard',
+    title: 'Connexion Google — Typosquatting',
+    isPhishing: true,
+    attackType: 'Typosquatting',
+    owasp: ['TYPOSQUAT', 'A07', 'SEC-PHISH'],
+    content: {
+      secure: true,
+      display: 'accounts.goog1e.com/signin',
+      full: 'https://accounts.goog1e.com/signin/v2/identifier?flowName=GeneralOAuthFlow'
+    },
+    explanation: 'URL de typosquatting remplaçant le "l" de "google" par le chiffre "1". Malgré un HTTPS valide et un chemin identique à Google, le domaine est frauduleux.',
+    clues: [
+      { label: 'Typosquatting', text: 'Le domaine est', bad: 'goog1e.com', note: ' (chiffre 1 au lieu de l). Cette technique s\'appelle typosquatting.' },
+      { label: 'HTTPS ne suffit pas', text: 'N\'importe qui peut obtenir un certificat HTTPS pour un faux domaine. Le cadenas ne garantit pas l\'identité.' },
+      { label: 'Chemin authentique copié', text: 'Le chemin /signin/v2/identifier est identique à celui de Google — conçu pour tromper.' },
+      { label: 'Vérification recommandée', text: 'Tapez toujours l\'URL directement dans la barre d\'adresse plutôt que de cliquer sur un lien.' }
+    ]
+  },
+  {
+    id: 10,
+    type: 'email',
+    difficulty: 'hard',
+    title: 'Notification MFA Apple — Fatigue',
+    isPhishing: true,
+    attackType: 'MFA Fatigue',
+    owasp: ['MFA-FATIGUE', 'A07', 'SEC-PHISH'],
+    content: {
+      from: 'Apple',
+      addr: 'no-reply@apple.com',
+      initials: 'AP',
+      subject: 'Votre identifiant Apple a été utilisé pour se connecter sur un iPhone 15',
+      body: `Votre identifiant Apple (vous@exemple.com) a été utilisé pour se connecter sur un nouvel iPhone 15 Pro à Paris, France.\n\nSi c'est vous, ignorez ce message.\n\nSINON : Votre compte est en danger. Vous avez reçu 3 demandes d'approbation MFA sur votre téléphone. APPROUVEZ-EN UNE pour annuler immédiatement la connexion suspecte et sécuriser votre compte.\n\nSi vous n'approuvez pas, votre compte sera définitivement suspendu dans 24h.`,
+      link: 'https://appleid.apple.com/account/manage'
+    },
+    explanation: 'Attaque par fatigue MFA (Push Bombing). L\'email semble légitime mais demande d\'APPROUVER une notification MFA — ce qui est l\'opposé du comportement sécurisé.',
+    clues: [
+      { label: 'MFA Fatigue', text: 'L\'attaquant a déjà vos identifiants. Il envoie des dizaines de notifications MFA pour vous pousser à en accepter une par erreur.' },
+      { label: 'Contradiction logique', text: 'Un email légitime demande de REFUSER une notification suspecte, jamais de l\'APPROUVER. C\'est un piège.' },
+      { label: 'Urgence 24h', text: 'La menace de suspension en 24h est une pression artificielle typique des arnaques.' },
+      { label: 'Domaine Apple réel', text: 'Même si l\'email vient d\'un vrai domaine Apple, la demande d\'approbation MFA reste frauduleuse.' }
+    ]
+  },
+  {
+    id: 11,
+    type: 'sms',
+    difficulty: 'hard',
+    title: 'SMS DRH — Deepfake vocal',
+    isPhishing: true,
+    attackType: 'Deepfake / Vishing',
+    owasp: ['DEEPFAKE', 'SEC-PHISH', 'A07'],
+    content: {
+      contact: 'Marie Dupont — RH',
+      number: '+33 6 98 76 54 32',
+      initials: 'MD',
+      message: 'Bonjour, je suis Marie Dupont de la DRH. J\'ai essayé de vous appeler, vous avez peut-être reçu un message vocal de moi. Suite à un incident de sécurité urgent, nous devons vérifier votre accès VPN. Merci de cliquer ici et de vous identifier avec vos identifiants d\'entreprise :\n\nhttps://vpn-acces-entreprise.io/verify\n\nConfidentiel — ne transmettez pas ce message.'
+    },
+    explanation: 'Attaque combinant deepfake vocal (vishing) et SMS. L\'attaquant prétend être un collègue DRH avec un message vocal falsifié pour établir la confiance avant de demander des identifiants.',
+    clues: [
+      { label: 'Deepfake vocal', text: 'L\'attaquant peut utiliser une IA pour imiter la voix d\'un collègue connu. Vérifiez toujours par un canal indépendant.' },
+      { label: 'Domaine externe', text: 'Le domaine', bad: 'vpn-acces-entreprise.io', note: ' n\'est pas un domaine d\'entreprise officiel. Les VPN internes ont des URLs reconnues.' },
+      { label: 'Mention "Confidentiel"', text: 'L\'injonction de confidentialité vise à vous empêcher de vérifier auprès de collègues — signal d\'alerte majeur.' },
+      { label: 'Identifiants VPN par SMS', text: 'Aucune équipe IT légitime ne demande des identifiants par SMS ou via un lien externe.' }
+    ]
+  },
+  {
+    id: 12,
+    type: 'email',
+    difficulty: 'medium',
+    title: 'Email interne compromis — IT Support',
+    isPhishing: true,
+    attackType: 'Email interne compromis',
+    owasp: ['A07', 'SEC-PHISH', 'A08'],
+    content: {
+      from: 'Support IT Interne',
+      addr: 'it-support@votre-entreprise.com',
+      initials: 'IT',
+      subject: 'Mise à jour obligatoire — Portail SSO avant vendredi',
+      body: `Bonjour,\n\nSuite à la migration de notre infrastructure SSO, tous les collaborateurs doivent reconfigurer leurs accès avant vendredi 18h.\n\nAction requise : connectez-vous avec vos identifiants actuels pour valider la migration :\n\nL'équipe IT`,
+      link: 'https://sso-migration-portail.net/reconfigure?emp=auto'
+    },
+    explanation: 'Email de phishing utilisant un domaine interne compromis ou usurpé. La demande de reconfiguration SSO via un lien externe est un signal d\'alerte critique.',
+    clues: [
+      { label: 'Domaine externe suspect', text: 'Le lien SSO pointe vers', bad: 'sso-migration-portail.net', note: ' — externe à l\'entreprise. Les portails SSO internes sont sur des domaines maîtrisés.' },
+      { label: 'Deadline artificielle', text: 'La deadline "vendredi 18h" crée une pression pour agir sans réfléchir — technique classique.' },
+      { label: 'Email interne compromis', text: 'Même un email depuis un domaine interne peut être frauduleux si le compte a été compromis ou usurpé par spoofing.' },
+      { label: 'Paramètre "emp=auto"', text: 'Le paramètre', bad: 'emp=auto', note: ' identifie automatiquement l\'employé — signe d\'une attaque ciblée (spear phishing).' }
+    ]
+  }
+];
+
+/* ═══════════════════════════════════════════════
+   STORAGE — LocalStorage persistence
+═══════════════════════════════════════════════ */
+const STORE_KEY = 'phishguard_v2_stats';
+
+function loadStats() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return freshStats();
+    return JSON.parse(raw);
+  } catch { return freshStats(); }
+}
+
+function freshStats() {
+  return {
+    gamesPlayed: 0,
+    totalAnswered: 0,
+    totalCorrect: 0,
+    totalPoints: 0,
+    bestStreak: 0,
+    byType: { email: { answered: 0, correct: 0 }, url: { answered: 0, correct: 0 }, sms: { answered: 0, correct: 0 } },
+    errorTypes: {},
+    attackErrors: {}
+  };
+}
+
+function saveStats(s) {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch {}
+}
+
+/* ═══════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════ */
+let stats = loadStats();
+
+let session = {
+  order: [],
+  current: 0,
+  answered: false,
+  score: 0,
+  correct: 0,
+  wrong: 0,
+  streak: 0,
+  results: []   // [{id, correct, type, attackType}]
+};
+
+/* ═══════════════════════════════════════════════
+   SCREEN MANAGEMENT
+═══════════════════════════════════════════════ */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('d-none'));
+  document.getElementById(id).classList.remove('d-none');
+}
+
+function setActiveTab(name) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  const el = document.getElementById('tab-' + name);
+  if (el) el.classList.add('active');
+}
+
+function showDashboard() {
+  setActiveTab('home');
+  showScreen('screen-dashboard');
+  document.getElementById('live-score').style.display = 'none';
+  renderDashboard();
+}
+
+/* ═══════════════════════════════════════════════
+   DASHBOARD
+═══════════════════════════════════════════════ */
+function renderDashboard() {
+  const s = stats;
+  const acc = s.totalAnswered > 0 ? Math.round(s.totalCorrect / s.totalAnswered * 100) : null;
+
+  document.getElementById('kpi-total').textContent = s.gamesPlayed;
+  document.getElementById('kpi-accuracy').textContent = acc !== null ? acc + '%' : '—';
+  document.getElementById('kpi-streak').textContent = s.bestStreak;
+  document.getElementById('kpi-points').textContent = s.totalPoints;
+
+  // Level
+  const level = Math.max(1, Math.floor(s.totalPoints / 50) + 1);
+  const levelPct = Math.min(100, ((s.totalPoints % 50) / 50) * 100);
+  document.getElementById('orb-level').textContent = level;
+  document.getElementById('level-orb').style.setProperty('--pct', levelPct);
+
+  // Category bars
+  ['email', 'url', 'sms'].forEach(t => {
+    const d = s.byType[t] || { answered: 0, correct: 0 };
+    const pct = d.answered > 0 ? Math.round(d.correct / d.answered * 100) : 0;
+    document.getElementById('bar-' + t).style.width = pct + '%';
+    document.getElementById('pct-' + t).textContent = d.answered > 0 ? pct + '%' : '—';
+  });
+
+  // Error list
+  const el = document.getElementById('error-list');
+  const entries = Object.entries(s.attackErrors || {}).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  if (entries.length === 0) {
+    el.innerHTML = '<div style="font-size:12px; color:var(--muted); text-align:center; padding:12px 0;">Jouez une partie pour voir vos points faibles.</div>';
+  } else {
+    el.innerHTML = entries.map(([key, count]) => {
+      const [type, name] = key.split('::');
+      return `<div class="error-item">
+        <span class="error-badge ${type}">${type.toUpperCase()}</span>
+        <span class="error-text">${escH(name)}</span>
+        <span class="error-count">${count}×</span>
+      </div>`;
+    }).join('');
+  }
+}
+
+function resetStats() {
+  if (!confirm('Réinitialiser toutes vos statistiques ?')) return;
+  stats = freshStats();
+  saveStats(stats);
+  renderDashboard();
+}
+
+/* ═══════════════════════════════════════════════
+   QUIZ FLOW
+═══════════════════════════════════════════════ */
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function startQuiz() {
+  setActiveTab('quiz');
+  session = {
+    order: shuffle(SCENARIOS),
+    current: 0,
+    answered: false,
+    score: 0,
+    correct: 0,
+    wrong: 0,
+    streak: 0,
+    results: []
+  };
+
+  document.getElementById('live-score').style.display = 'flex';
+  document.getElementById('score-display').textContent = '0';
+  showScreen('screen-quiz');
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const q = session.order[session.current];
+  session.answered = false;
+
+  // Steps
+  const stepsEl = document.getElementById('q-steps');
+  stepsEl.innerHTML = session.order.map((sq, i) => {
+    let cls = 'q-step';
+    if (i < session.current) {
+      const r = session.results[i];
+      cls += r && r.correct ? ' correct-done' : ' wrong-done';
+    } else if (i === session.current) {
+      cls += ' current';
+    }
+    return `<div class="${cls}"></div>`;
+  }).join('');
+
+  document.getElementById('q-counter').textContent = `${session.current + 1} / ${session.order.length}`;
+
+  // Type badge
+  const badge = document.getElementById('q-type-badge');
+  badge.className = 'q-type-badge ' + q.type;
+  badge.textContent = { email: '📧 Email', url: '🌐 URL', sms: '💬 SMS' }[q.type];
+
+  // Difficulty
+  const diff = document.getElementById('q-diff');
+  diff.className = 'q-diff diff-' + q.difficulty;
+  diff.textContent = { easy: 'Facile', medium: 'Intermédiaire', hard: 'Avancé' }[q.difficulty];
+
+  document.getElementById('q-title').textContent = q.title;
+
+  // Render scenario
+  document.getElementById('scenario-content').innerHTML = renderScenario(q);
+
+  // Reset buttons
+  const bl = document.getElementById('btn-legit');
+  const bp = document.getElementById('btn-phish');
+  bl.disabled = false; bp.disabled = false;
+  bl.className = 'choice-btn'; bp.className = 'choice-btn';
+
+  // Clear feedback, hide next
+  document.getElementById('feedback-area').innerHTML = '';
+  document.getElementById('btn-next').classList.add('d-none');
+
+  // Hide OWASP panel
+  document.getElementById('owasp-panel').style.display = 'none';
+
+  // Update sidebar
+  updateSidebar();
+}
+
+function renderScenario(q) {
+  if (q.type === 'email') {
+    return `<div class="email-card">
+      <div class="email-chrome">
+        <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+        <span class="email-chrome-label">Messagerie — Boîte de réception</span>
+      </div>
+      <div class="email-meta">
+        <div class="avatar">${escH(q.content.initials)}</div>
+        <div>
+          <div class="email-from-name">${escH(q.content.from)}</div>
+          <div class="email-from-addr">&lt;${escH(q.content.addr)}&gt;</div>
+        </div>
+      </div>
+      <div class="email-subject">${escH(q.content.subject)}</div>
+      <div class="email-body">${escH(q.content.body)}</div>
+      <a class="email-link" href="#" onclick="return false;">${escH(q.content.link)}</a>
+    </div>`;
+  }
+
+  if (q.type === 'url') {
+    const padlock = q.content.secure
+      ? `<span class="padlock ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>`
+      : `<span class="padlock bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg></span>`;
+    return `<div class="url-card">
+      <div class="browser-chrome">
+        <div class="browser-dots"><div class="dot r"></div><div class="dot y"></div><div class="dot g"></div></div>
+        <div class="browser-addr">${padlock}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escH(q.content.display)}</span></div>
+      </div>
+      <div class="url-detail">
+        <div class="url-display">${escH(q.content.display)}</div>
+        <div class="url-full-label">URL complète :</div>
+        <div class="url-full-val">${escH(q.content.full)}</div>
+      </div>
+    </div>`;
+  }
+
+  if (q.type === 'sms') {
+    return `<div class="sms-card">
+      <div class="sms-header">
+        <div class="sms-avatar">${escH(q.content.initials)}</div>
+        <div>
+          <div class="sms-name">${escH(q.content.contact)}</div>
+          <div class="sms-num">${escH(q.content.number)}</div>
+        </div>
+      </div>
+      <div class="sms-body">
+        <div class="sms-bubble">${escH(q.content.message).replace(/\n/g, '<br>')}</div>
+      </div>
+    </div>`;
+  }
+}
+
+function answer(isLegit) {
+  if (session.answered) return;
+  session.answered = true;
+
+  const q = session.order[session.current];
+  const correct = (isLegit && !q.isPhishing) || (!isLegit && q.isPhishing);
+
+  const bl = document.getElementById('btn-legit');
+  const bp = document.getElementById('btn-phish');
+  bl.disabled = true; bp.disabled = true;
+
+  if (isLegit) {
+    bl.classList.add(correct ? 'correct' : 'wrong');
+    if (!correct) bp.classList.add('reveal');
+  } else {
+    bp.classList.add(correct ? 'correct' : 'wrong');
+    if (!correct) bl.classList.add('reveal');
+  }
+
+  // Scoring
+  const pts = q.difficulty === 'hard' ? 3 : q.difficulty === 'medium' ? 2 : 1;
+
+  if (correct) {
+    session.score += pts;
+    session.correct++;
+    session.streak++;
+  } else {
+    session.wrong++;
+    session.streak = 0;
+  }
+
+  // Track results
+  session.results.push({ id: q.id, correct, type: q.type, attackType: q.attackType });
+
+  // Update session score
+  document.getElementById('score-display').textContent = session.score;
+  updateSidebar();
+
+  // Update step for current
+  const steps = document.getElementById('q-steps').children;
+  if (steps[session.current]) {
+    steps[session.current].className = 'q-step ' + (correct ? 'correct-done' : 'wrong-done');
+  }
+
+  // Render feedback
+  renderFeedback(q, correct, pts);
+
+  // Show OWASP
+  if (q.owasp && q.owasp.length > 0) {
+    showOwaspPanel(q.owasp);
+  }
+
+  // Show next
+  const btnNext = document.getElementById('btn-next');
+  btnNext.classList.remove('d-none');
+  btnNext.textContent = session.current < session.order.length - 1 ? 'Suivant →' : 'Voir les résultats →';
+}
+
+function renderFeedback(q, correct, pts) {
+  const attackTag = q.attackType
+    ? `<span class="attack-tag">⚡ ${escH(q.attackType)}</span>`
+    : '';
+
+  const cluesHtml = q.clues.map(c => {
+    let detail = escH(c.text);
+    if (c.bad) detail += ` <span class="hl-bad">${escH(c.bad)}</span>`;
+    if (c.good) detail += ` <span class="hl-good">${escH(c.good)}</span>`;
+    if (c.note) detail += escH(c.note);
+    return `<div class="clue-item">
+      <div class="clue-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+      <div><span class="clue-label">${escH(c.label)}</span><span>${detail}</span></div>
+    </div>`;
+  }).join('');
+
+  const icon = correct
+    ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`
+    : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
+
+  const header = correct
+    ? `${icon} Correct ! +${pts} point${pts > 1 ? 's' : ''}${attackTag}`
+    : `${icon} Incorrect${attackTag}`;
+
+  document.getElementById('feedback-area').innerHTML = `
+    <div class="feedback-panel ${correct ? 'correct' : 'wrong'}">
+      <div class="feedback-top ${correct ? 'correct' : 'wrong'}">${header}</div>
+      <div class="feedback-body-text">${escH(q.explanation)}</div>
+      <div class="clues-list">${cluesHtml}</div>
+    </div>`;
+}
+
+function showOwaspPanel(tags) {
+  const panel = document.getElementById('owasp-panel');
+  const list = document.getElementById('owasp-list');
+
+  list.innerHTML = tags.map(key => {
+    const o = OWASP[key];
+    if (!o) return '';
+    return `<div class="owasp-tag" tabindex="0">${escH(o.code)}
+      <div class="owasp-tip"><strong>${escH(o.name)}</strong><br>${escH(o.desc)}</div>
+    </div>`;
+  }).join('');
+
+  panel.style.display = 'block';
+}
+
+function updateSidebar() {
+  document.getElementById('sb-score').textContent = session.score + ' pts';
+  document.getElementById('sb-correct').textContent = session.correct;
+  document.getElementById('sb-wrong').textContent = session.wrong;
+  const total = session.correct + session.wrong;
+  document.getElementById('sb-acc').textContent = total > 0
+    ? Math.round(session.correct / total * 100) + '%'
+    : '—';
+}
+
+function nextQ() {
+  session.current++;
+  if (session.current >= session.order.length) {
+    commitStats();
+    showResults();
+  } else {
+    renderQuestion();
+    document.getElementById('screen-quiz').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   COMMIT SESSION → PERSISTENT STATS
+═══════════════════════════════════════════════ */
+function commitStats() {
+  const s = stats;
+  s.gamesPlayed++;
+  s.totalAnswered += session.results.length;
+  s.totalCorrect += session.correct;
+  s.totalPoints += session.score;
+  if (session.streak > s.bestStreak) s.bestStreak = session.streak;
+
+  session.results.forEach(r => {
+    const bt = s.byType[r.type] || { answered: 0, correct: 0 };
+    bt.answered++;
+    if (r.correct) bt.correct++;
+    s.byType[r.type] = bt;
+
+    if (!r.correct && r.attackType) {
+      const key = r.type + '::' + r.attackType;
+      s.attackErrors[key] = (s.attackErrors[key] || 0) + 1;
+    }
+  });
+
+  saveStats(s);
+}
+
+/* ═══════════════════════════════════════════════
+   RESULTS
+═══════════════════════════════════════════════ */
+function showResults() {
+  showScreen('screen-results');
+  setActiveTab('');
+
+  const total = session.results.length;
+  const pct = total > 0 ? Math.round(session.correct / total * 100) : 0;
+
+  document.getElementById('ring-pct').textContent = pct + '%';
+  document.getElementById('bd-correct').textContent = session.correct;
+  document.getElementById('bd-wrong').textContent = session.wrong;
+  document.getElementById('bd-score').textContent = session.score;
+
+  // Ring animation
+  setTimeout(() => {
+    const circ = 2 * Math.PI * 60;
+    const offset = circ * (1 - pct / 100);
+    document.getElementById('ring-arc').style.strokeDashoffset = offset;
+  }, 150);
+
+  // Color ring based on score
+  const ringColor = pct >= 75 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
+  document.getElementById('ring-arc').style.stroke = ringColor;
+
+  // Rating
+  const ratings = [
+    [88, 'Expert en cybersécurité', 'Résultat exceptionnel. Vous détectez même les attaques sophistiquées comme la fatigue MFA et les deepfakes.'],
+    [62, 'Très bon niveau', 'Excellent ! Vous maîtrisez les signaux d\'alerte principaux. Quelques attaques avancées restent à consolider.'],
+    [37, 'Niveau intermédiaire', 'Vous détectez les cas évidents. Entraînez-vous sur les URLs et les techniques d\'ingénierie sociale avancées.'],
+    [0, 'Débutant', 'Ne vous découragez pas. Relisez les explications de chaque scénario et réessayez — chaque erreur est une leçon.']
+  ];
+  const [, title, desc] = ratings.find(([t]) => pct >= t);
+  document.getElementById('result-title').textContent = title;
+  document.getElementById('result-desc').textContent = desc;
+
+  // Per-attack breakdown
+  const atkBreak = {};
+  session.results.forEach(r => {
+    const t = r.type;
+    if (!atkBreak[t]) atkBreak[t] = { correct: 0, total: 0 };
+    atkBreak[t].total++;
+    if (r.correct) atkBreak[t].correct++;
+  });
+
+  const labels = { email: '📧 Email', url: '🌐 URL', sms: '💬 SMS' };
+  const atkRows = Object.entries(atkBreak).map(([type, d]) => {
+    const p = Math.round(d.correct / d.total * 100);
+    const color = p >= 75 ? 'var(--green)' : p >= 50 ? 'var(--amber)' : 'var(--red)';
+    return `<div class="atk-row">
+      <span class="atk-name">${labels[type] || type}</span>
+      <div class="atk-bar-wrap"><div class="atk-bar-bg"><div class="atk-bar-fg" style="width:${p}%; background:${color};"></div></div></div>
+      <span class="atk-pct">${p}%</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('attack-breakdown').innerHTML = atkRows || '<div style="padding:12px 16px; font-size:12px; color:var(--muted);">—</div>';
+}
+
+/* ═══════════════════════════════════════════════
+   TICKER
+═══════════════════════════════════════════════ */
+const TIPS = [
+  'Vérifiez toujours le domaine exact d\'un lien — le vrai domaine est à droite du dernier "." avant le premier "/".',
+  'HTTPS ne garantit pas la légitimité d\'un site, seulement le chiffrement de la connexion.',
+  'Un email urgent demandant vos identifiants est presque toujours une arnaque.',
+  'Méfiez-vous des homoglyphes : "paypa1.com" n\'est pas "paypal.com".',
+  'Les administrations françaises utilisent exclusivement des domaines en .gouv.fr.',
+  'La fatigue MFA : refusez TOUJOURS une notification que vous n\'avez pas initiée.',
+  'Votre banque ne vous demandera jamais votre mot de passe par email ou SMS.',
+  'Un SMS avec un lien et une demande de paiement urgent = arnaque probable.',
+  'Activez l\'authentification à deux facteurs (2FA) sur tous vos comptes sensibles.',
+  'En cas de doute, contactez l\'organisation directement via son site officiel.',
+  'Les deepfakes vocaux peuvent imiter la voix d\'un collègue — vérifiez par un autre canal.',
+  'Un email interne peut être frauduleux si le compte expéditeur a été compromis.',
+];
+
+function buildTicker() {
+  const tips = [...TIPS, ...TIPS];
+  document.getElementById('ticker').innerHTML = tips.map(t =>
+    `<span>${escH(t)}<span class="ticker-sep">·</span></span>`
+  ).join('');
+}
+
+/* ═══════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════ */
+function escH(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/* ═══════════════════════════════════════════════
+   KEYBOARD NAV
+═══════════════════════════════════════════════ */
+document.addEventListener('keydown', e => {
+  if (document.getElementById('screen-quiz').classList.contains('d-none')) return;
+  if (e.key === 'l' || e.key === 'L') { if (!session.answered) document.getElementById('btn-legit').click(); }
+  if (e.key === 'h' || e.key === 'H') { if (!session.answered) document.getElementById('btn-phish').click(); }
+  if (e.key === 'Enter') {
+    const btn = document.getElementById('btn-next');
+    if (!btn.classList.contains('d-none')) btn.click();
+  }
+});
+
+/* ═══════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════ */
+buildTicker();
+showDashboard();
+</script>
+</body>
+</html>
